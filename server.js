@@ -5,7 +5,7 @@ const PORT = process.env.PORT || 3000;
 
 const CT_JWT = process.env.CT_JWT;
 
-// Middleware CORS para permitir peticiones externas (como Google Sheets)
+// Middleware para permitir CORS (por ejemplo, desde Google Sheets)
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   next();
@@ -25,7 +25,6 @@ app.get("/precioCT0", async (req, res) => {
     console.log("→ Expansión:", expansion);
     console.log("→ JWT usado:", CT_JWT ? CT_JWT.slice(0, 30) + "..." : "undefined");
 
-    // Llamada a la API de expansiones
     const expansionRes = await fetch("https://api.cardtrader.com/api/v2/expansions", {
       headers: {
         Authorization: `Bearer ${CT_JWT}`
@@ -41,27 +40,37 @@ app.get("/precioCT0", async (req, res) => {
     }
 
     const data = await expansionRes.json();
-
-    // Ver si la respuesta es un array directo o un objeto { data: [...] }
     const expansiones = Array.isArray(data) ? data : data.data;
 
     console.log("📦 Número de expansiones:", expansiones.length);
-    console.log("🔎 Slugs disponibles:");
-    expansiones.forEach(e => {
-      console.log(`- ${e.slug} → ${e.name}`);
+
+    // 🔎 Mostrar la primera expansión entera
+    console.log("🔎 Primera expansión (para inspección completa):");
+    console.log(JSON.stringify(expansiones[0], null, 2));
+
+    // 🔎 Mostrar claves y nombre de cada expansión
+    console.log("🔎 Claves disponibles en las expansiones:");
+    expansiones.slice(0, 20).forEach(e => {
+      console.log("- keys:", Object.keys(e).join(", "));
+      console.log("→ name:", e.name);
     });
 
-    // Buscar expansión por slug
-    const expansionObj = expansiones.find(e => e.slug === expansion.toLowerCase());
+    // Intento de búsqueda de slug genérico por si alguno sí lo tuviera
+    const expansionObj = expansiones.find((e) => {
+      return (
+        e.slug?.toLowerCase() === expansion.toLowerCase() ||
+        e.url_slug?.toLowerCase() === expansion.toLowerCase() ||
+        e.code?.toLowerCase() === expansion.toLowerCase()
+      );
+    });
 
     if (!expansionObj) {
-      console.log("❓ No se encontró la expansión:", expansion);
+      console.log("❓ No se encontró la expansión con ningún slug/código:", expansion);
       return res.status(404).json({ error: "Expansión no encontrada", expansion });
     }
 
     console.log("✅ Expansión encontrada:", expansionObj.name, "ID:", expansionObj.id);
 
-    // Devolver resultado de prueba
     return res.json({
       expansionSolicitada: expansion,
       expansionEncontrada: expansionObj.name,
@@ -78,3 +87,4 @@ app.get("/precioCT0", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Servidor escuchando en el puerto ${PORT}`);
 });
+
