@@ -11,7 +11,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// Endpoint principal
 app.get("/precioCT0", async (req, res) => {
   const { carta, expansion } = req.query;
 
@@ -25,7 +24,7 @@ app.get("/precioCT0", async (req, res) => {
     console.log("Expansión:", expansion);
     console.log("JWT que estoy usando:", CT_JWT ? CT_JWT.slice(0, 30) + "..." : "undefined");
 
-    // Petición a API de CardTrader
+    // Petición a la API de CardTrader
     const expansionRes = await fetch("https://api.cardtrader.com/api/v2/expansions", {
       headers: {
         Authorization: `Bearer ${CT_JWT}`
@@ -43,7 +42,11 @@ app.get("/precioCT0", async (req, res) => {
     const data = await expansionRes.json();
     console.log("📦 Número de expansiones recibidas:", data.length);
 
-    // Buscar expansión
+    // 🔎 MOSTRAR TODOS LOS SLUGS
+    console.log("🔎 Slugs disponibles:");
+    data.forEach(e => console.log(`- ${e.slug} → ${e.name}`));
+
+    // Buscar expansión por slug exacto
     const expansionObj = data.find((e) => e.slug === expansion.toLowerCase());
 
     if (!expansionObj) {
