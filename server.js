@@ -22,6 +22,7 @@ app.get("/precioCT0", async (req, res) => {
     console.log("→ Carta:", carta);
     console.log("→ Código de expansión:", expansion);
 
+    // Buscar expansión por code
     const expansionRes = await fetch("https://api.cardtrader.com/api/v2/expansions", {
       headers: {
         Authorization: `Bearer ${CT_JWT}`
@@ -30,7 +31,6 @@ app.get("/precioCT0", async (req, res) => {
 
     const data = await expansionRes.json();
     const expansiones = Array.isArray(data) ? data : data.data;
-
     const expansionObj = expansiones.find(e => e.code?.toLowerCase() === expansion.toLowerCase());
 
     if (!expansionObj) {
@@ -39,8 +39,9 @@ app.get("/precioCT0", async (req, res) => {
 
     console.log("✅ Expansión encontrada:", expansionObj.name, "ID:", expansionObj.id);
 
-    const cardRes = await fetch(
-      `https://api.cardtrader.com/api/v2/cards/search?expansion_id=${expansionObj.id}&q=${encodeURIComponent(carta)}`,
+    // Ahora buscamos la carta dentro de la expansión usando el nuevo endpoint correcto
+    const cardsRes = await fetch(
+      `https://api.cardtrader.com/api/v2/expansions/${expansionObj.id}/cards`,
       {
         headers: {
           Authorization: `Bearer ${CT_JWT}`
@@ -48,14 +49,17 @@ app.get("/precioCT0", async (req, res) => {
       }
     );
 
-    const cardData = await cardRes.json();
+    const cardData = await cardsRes.json();
     const cartas = cardData.data || cardData;
 
-    if (!cartas.length) {
-      return res.status(404).json({ error: "Carta no encontrada", carta, expansion });
-    }
+    const cartaObj = cartas.find(c =>
+      c.name.toLowerCase().replace(/[^a-z0-9]/g, "") ===
+      carta.toLowerCase().replace(/[^a-z0-9]/g, "")
+    );
 
-    const cartaObj = cartas[0];
+    if (!cartaObj) {
+      return res.status(404).json({ error: "Carta no encontrada", carta });
+    }
 
     return res.json({
       expansion_id: expansionObj.id,
@@ -74,4 +78,3 @@ app.get("/precioCT0", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Servidor escuchando en el puerto ${PORT}`);
 });
-
