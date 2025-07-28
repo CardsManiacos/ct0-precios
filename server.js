@@ -28,10 +28,6 @@ app.get("/precioCT0", async (req, res) => {
       headers: { Authorization: `Bearer ${CT_JWT}` }
     });
 
-    if (!expRes.ok) {
-      throw new Error(`Error ${expRes.status}: ${await expRes.text()}`);
-    }
-
     const expData = await expRes.json();
     const expansiones = Array.isArray(expData) ? expData : expData.data;
     const expansionObj = expansiones.find(e => e.code?.toLowerCase() === expansion.toLowerCase());
@@ -43,19 +39,14 @@ app.get("/precioCT0", async (req, res) => {
     const expansion_id = expansionObj.id;
     console.log("✅ Expansion encontrada:", expansionObj.name, `(ID: ${expansion_id})`);
 
-    // 2. Obtener todas las cartas de esa expansión
+    // 2. Obtener las cartas de esa expansión
     const cardsRes = await fetch(`https://api.cardtrader.com/api/v2/expansions/${expansion_id}/cards`, {
       headers: { Authorization: `Bearer ${CT_JWT}` }
     });
 
-    if (!cardsRes.ok) {
-      throw new Error(`Error ${cardsRes.status}: ${await cardsRes.text()}`);
-    }
-
     const cardsData = await cardsRes.json();
     const cartas = Array.isArray(cardsData) ? cardsData : cardsData.data;
 
-    // 3. Buscar la carta por nombre
     const cartaObj = cartas.find(c => c.name.toLowerCase() === carta.toLowerCase());
 
     if (!cartaObj) {
@@ -65,20 +56,13 @@ app.get("/precioCT0", async (req, res) => {
     const blueprint_id = cartaObj.blueprint_id;
     console.log("✅ Carta encontrada:", cartaObj.name, `(Blueprint ID: ${blueprint_id})`);
 
-    // 4. Buscar productos de esa carta
-    const marketRes = await fetch(
-      `https://api.cardtrader.com/api/v2/marketplace/products?blueprint_id=${blueprint_id}`,
-      {
-        headers: { Authorization: `Bearer ${CT_JWT}` }
-      }
-    );
+    // 3. Usamos el endpoint correcto para obtener productos
+    const productRes = await fetch(`https://api.cardtrader.com/api/v2/blueprints/${blueprint_id}/products`, {
+      headers: { Authorization: `Bearer ${CT_JWT}` }
+    });
 
-    if (!marketRes.ok) {
-      throw new Error(`Error ${marketRes.status}: ${await marketRes.text()}`);
-    }
-
-    const marketData = await marketRes.json();
-    const productos = Array.isArray(marketData) ? marketData : marketData.data;
+    const productData = await productRes.json();
+    const productos = Array.isArray(productData) ? productData : productData.data;
 
     const ct0 = productos.filter(p => p.via_cardtrader_zero === true);
 
