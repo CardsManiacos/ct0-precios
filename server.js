@@ -22,7 +22,7 @@ app.get("/precioCT0", async (req, res) => {
     console.log("→ Carta:", carta);
     console.log("→ Código de expansión:", expansion);
 
-    // Paso 1: Obtener todas las expansiones
+    // Obtener expansiones
     const expansionRes = await fetch("https://api.cardtrader.com/api/v2/expansions", {
       headers: {
         Authorization: `Bearer ${CT_JWT}`,
@@ -30,15 +30,8 @@ app.get("/precioCT0", async (req, res) => {
       }
     });
 
-    const contentTypeExp = expansionRes.headers.get("content-type");
-    if (!contentTypeExp || !contentTypeExp.includes("application/json")) {
-      const htmlError = await expansionRes.text();
-      return res.status(500).json({ error: "Respuesta inesperada en expansiones", detalle: htmlError.slice(0, 200) });
-    }
-
     const data = await expansionRes.json();
     const expansiones = Array.isArray(data) ? data : data.data;
-
     const expansionObj = expansiones.find(e => e.code?.toLowerCase() === expansion.toLowerCase());
 
     if (!expansionObj) {
@@ -47,19 +40,13 @@ app.get("/precioCT0", async (req, res) => {
 
     console.log("✅ Expansión encontrada:", expansionObj.name, "ID:", expansionObj.id);
 
-    // Paso 2: Buscar la carta (endpoint corregido: sin /search)
-    const cartasRes = await fetch(`https://api.cardtrader.com/api/v2/cards?expansion_id=${expansionObj.id}&q=${encodeURIComponent(carta)}`, {
+    // Buscar cartas de la expansión
+    const cartasRes = await fetch(`https://api.cardtrader.com/api/v2/expansions/${expansionObj.id}/cards`, {
       headers: {
         Authorization: `Bearer ${CT_JWT}`,
         Accept: "application/json"
       }
     });
-
-    const contentTypeCards = cartasRes.headers.get("content-type");
-    if (!contentTypeCards || !contentTypeCards.includes("application/json")) {
-      const htmlError = await cartasRes.text();
-      return res.status(500).json({ error: "Respuesta inesperada en búsqueda de cartas", detalle: htmlError.slice(0, 200) });
-    }
 
     const cartasData = await cartasRes.json();
     const cartas = Array.isArray(cartasData) ? cartasData : cartasData.data ?? [];
