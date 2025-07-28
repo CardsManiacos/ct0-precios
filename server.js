@@ -47,8 +47,8 @@ app.get("/precioCT0", async (req, res) => {
 
     console.log("✅ Expansión encontrada:", expansionObj.name, "ID:", expansionObj.id);
 
-    // Paso 2: Obtener todas las cartas de la expansión
-    const cartasRes = await fetch(`https://api.cardtrader.com/api/v2/expansions/${expansionObj.id}/cards`, {
+    // Paso 2: Buscar la carta por nombre y expansión usando el endpoint correcto
+    const cartasRes = await fetch(`https://api.cardtrader.com/api/v2/cards/search?expansion_id=${expansionObj.id}&q=${encodeURIComponent(carta)}`, {
       headers: {
         Authorization: `Bearer ${CT_JWT}`,
         Accept: "application/json"
@@ -58,11 +58,11 @@ app.get("/precioCT0", async (req, res) => {
     const contentTypeCards = cartasRes.headers.get("content-type");
     if (!contentTypeCards || !contentTypeCards.includes("application/json")) {
       const htmlError = await cartasRes.text();
-      return res.status(500).json({ error: "Respuesta inesperada en cartas", detalle: htmlError.slice(0, 200) });
+      return res.status(500).json({ error: "Respuesta inesperada en búsqueda de cartas", detalle: htmlError.slice(0, 200) });
     }
 
     const cartasData = await cartasRes.json();
-    const cartas = Array.isArray(cartasData) ? cartasData : cartasData.data;
+    const cartas = Array.isArray(cartasData) ? cartasData : cartasData.data ?? [];
 
     const cartaEncontrada = cartas.find(c =>
       c.name?.toLowerCase() === carta.toLowerCase() ||
