@@ -41,28 +41,34 @@ app.get("/precioCT0", async (req, res) => {
 
     console.log("✅ Expansión encontrada:", expansionObj.name, "ID:", expansionObj.id);
 
-    // 3. Buscar carta por nombre y expansión ID
-    const cartaRes = await fetch(
-      `https://api.cardtrader.com/api/v2/cards/search?q=${encodeURIComponent(carta)}&expansion_id=${expansionObj.id}`,
-      {
-        headers: {
-          Authorization: `Bearer ${CT_JWT}`
-        }
+    // 3. Obtener cartas de la expansión
+    const cartasRes = await fetch(`https://api.cardtrader.com/api/v2/expansions/${expansionObj.id}/cards`, {
+      headers: {
+        Authorization: `Bearer ${CT_JWT}`
       }
-    );
+    });
 
-    const contentType = cartaRes.headers.get("content-type");
+    const contentType = cartasRes.headers.get("content-type");
     if (!contentType || !contentType.includes("application/json")) {
-      const htmlError = await cartaRes.text();
+      const htmlError = await cartasRes.text();
       return res.status(500).json({ error: "Respuesta inesperada", detalle: htmlError.slice(0, 200) });
     }
 
-    const cartaData = await cartaRes.json();
+    const cartasData = await cartasRes.json();
+    const cartas = Array.isArray(cartasData) ? cartasData : cartasData.data;
+
+    const cartaEncontrada = cartas.find(c =>
+      c.name.toLowerCase() === carta.toLowerCase() || c.local_name.toLowerCase() === carta.toLowerCase()
+    );
+
+    if (!cartaEncontrada) {
+      return res.status(404).json({ error: "Carta no encontrada en esta expansión" });
+    }
 
     return res.json({
       expansion_id: expansionObj.id,
-      carta_buscada: carta,
-      resultados: cartaData
+      expansion_name: expansionObj.name,
+      carta: cartaEncontrada
     });
 
   } catch (error) {
