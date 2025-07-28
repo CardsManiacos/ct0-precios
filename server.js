@@ -22,7 +22,7 @@ app.get("/precioCT0", async (req, res) => {
     console.log("→ Carta:", carta);
     console.log("→ Código de expansión:", expansion);
 
-    // Buscar expansión por code
+    // 1. Obtener lista de expansiones
     const expansionRes = await fetch("https://api.cardtrader.com/api/v2/expansions", {
       headers: {
         Authorization: `Bearer ${CT_JWT}`
@@ -31,6 +31,8 @@ app.get("/precioCT0", async (req, res) => {
 
     const data = await expansionRes.json();
     const expansiones = Array.isArray(data) ? data : data.data;
+
+    // 2. Buscar expansión por código
     const expansionObj = expansiones.find(e => e.code?.toLowerCase() === expansion.toLowerCase());
 
     if (!expansionObj) {
@@ -39,9 +41,9 @@ app.get("/precioCT0", async (req, res) => {
 
     console.log("✅ Expansión encontrada:", expansionObj.name, "ID:", expansionObj.id);
 
-    // Ahora buscamos la carta dentro de la expansión usando el nuevo endpoint correcto
-    const cardsRes = await fetch(
-      `https://api.cardtrader.com/api/v2/expansions/${expansionObj.id}/cards`,
+    // 3. Buscar carta por nombre y expansión ID
+    const cartaRes = await fetch(
+      `https://api.cardtrader.com/api/v2/cards/search?q=${encodeURIComponent(carta)}&expansion_id=${expansionObj.id}`,
       {
         headers: {
           Authorization: `Bearer ${CT_JWT}`
@@ -49,24 +51,18 @@ app.get("/precioCT0", async (req, res) => {
       }
     );
 
-    const cardData = await cardsRes.json();
-    const cartas = cardData.data || cardData;
-
-    const cartaObj = cartas.find(c =>
-      c.name.toLowerCase().replace(/[^a-z0-9]/g, "") ===
-      carta.toLowerCase().replace(/[^a-z0-9]/g, "")
-    );
-
-    if (!cartaObj) {
-      return res.status(404).json({ error: "Carta no encontrada", carta });
+    const contentType = cartaRes.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const htmlError = await cartaRes.text();
+      return res.status(500).json({ error: "Respuesta inesperada", detalle: htmlError.slice(0, 200) });
     }
+
+    const cartaData = await cartaRes.json();
 
     return res.json({
       expansion_id: expansionObj.id,
-      expansion_code: expansionObj.code,
-      expansion_name: expansionObj.name,
-      carta: cartaObj.name,
-      blueprint_id: cartaObj.blueprint_id
+      carta_buscada: carta,
+      resultados: cartaData
     });
 
   } catch (error) {
