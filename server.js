@@ -23,43 +23,50 @@ app.get("/precioCT0", async (req, res) => {
     console.log("→ Expansión:", expansion);
     console.log("→ JWT usado:", CT_JWT.slice(0, 30) + "...");
 
-    // 1. Obtener todas las expansiones
+    // Paso 1: Obtener todas las expansiones
     const expRes = await fetch("https://api.cardtrader.com/api/v2/expansions", {
       headers: { Authorization: `Bearer ${CT_JWT}` }
     });
-
     const expData = await expRes.json();
     const expansiones = Array.isArray(expData) ? expData : expData.data;
-    const expansionObj = expansiones.find(e => e.code?.toLowerCase() === expansion.toLowerCase());
+
+    const expansionObj = expansiones.find(e =>
+      e.code?.toLowerCase() === expansion.toLowerCase()
+    );
 
     if (!expansionObj) {
       return res.status(404).json({ error: "Expansión no encontrada", expansion });
     }
 
     const expansion_id = expansionObj.id;
-    console.log("✅ Expansion encontrada:", expansionObj.name, `(ID: ${expansion_id})`);
+    console.log("✅ Expansión encontrada:", expansionObj.name, `(ID: ${expansion_id})`);
 
-    // 2. Obtener las cartas de esa expansión
-    const cardsRes = await fetch(`https://api.cardtrader.com/api/v2/expansions/${expansion_id}/cards`, {
-      headers: { Authorization: `Bearer ${CT_JWT}` }
-    });
+    // Paso 2: Buscar la carta en la expansión por nombre
+    const searchRes = await fetch(
+      `https://api.cardtrader.com/api/v2/cards/search?expansion_id=${expansion_id}&q=${encodeURIComponent(carta)}`,
+      {
+        headers: { Authorization: `Bearer ${CT_JWT}` }
+      }
+    );
 
-    const cardsData = await cardsRes.json();
-    const cartas = Array.isArray(cardsData) ? cardsData : cardsData.data;
+    const searchData = await searchRes.json();
+    const cartas = Array.isArray(searchData) ? searchData : searchData.data;
 
-    const cartaObj = cartas.find(c => c.name.toLowerCase() === carta.toLowerCase());
-
-    if (!cartaObj) {
+    if (!cartas || cartas.length === 0) {
       return res.status(404).json({ error: "Carta no encontrada en esta expansión", carta });
     }
 
+    const cartaObj = cartas[0];
     const blueprint_id = cartaObj.blueprint_id;
     console.log("✅ Carta encontrada:", cartaObj.name, `(Blueprint ID: ${blueprint_id})`);
 
-    // 3. Usamos el endpoint correcto para obtener productos
-    const productRes = await fetch(`https://api.cardtrader.com/api/v2/blueprints/${blueprint_id}/products`, {
-      headers: { Authorization: `Bearer ${CT_JWT}` }
-    });
+    // Paso 3: Obtener productos CT0
+    const productRes = await fetch(
+      `https://api.cardtrader.com/api/v2/blueprints/${blueprint_id}/products`,
+      {
+        headers: { Authorization: `Bearer ${CT_JWT}` }
+      }
+    );
 
     const productData = await productRes.json();
     const productos = Array.isArray(productData) ? productData : productData.data;
