@@ -18,14 +18,13 @@ app.get("/precioCT0", async (req, res) => {
   }
 
   try {
-    console.log("🔍 Buscando expansión con código:", expansion);
-
     // 1. Obtener lista de expansiones
     const expRes = await fetch("https://api.cardtrader.com/api/v2/expansions", {
       headers: { Authorization: `Bearer ${CT_JWT}` }
     });
     const expData = await expRes.json();
     const expansiones = Array.isArray(expData) ? expData : expData.data;
+
     const expansionObj = expansiones.find(e => e.code?.toLowerCase() === expansion.toLowerCase());
 
     if (!expansionObj) {
@@ -33,26 +32,31 @@ app.get("/precioCT0", async (req, res) => {
     }
 
     const expansion_id = expansionObj.id;
-    console.log("✅ Expansión encontrada:", expansionObj.name, "(ID:", expansion_id, ")");
 
-    // 2. Buscar blueprint_id de la carta
-    const searchUrl = `https://api.cardtrader.com/api/v2/cards/search?expansion_id=${expansion_id}&q=${encodeURIComponent(carta)}`;
-    const cartaRes = await fetch(searchUrl, {
+    // 2. Obtener todas las cartas de la expansión
+    const cardsUrl = `https://api.cardtrader.com/api/v2/expansions/${expansion_id}/cards`;
+    const cardsRes = await fetch(cardsUrl, {
       headers: { Authorization: `Bearer ${CT_JWT}` }
     });
-    const cartaData = await cartaRes.json();
-    const cartas = Array.isArray(cartaData) ? cartaData : cartaData.data;
 
+    if (!cardsRes.ok) {
+      const errorText = await cardsRes.text();
+      throw new Error(`Error ${cardsRes.status}: ${errorText}`);
+    }
+
+    const cardsData = await cardsRes.json();
+    const cartas = Array.isArray(cardsData) ? cardsData : cardsData.data;
+
+    // 3. Buscar la carta exacta por nombre (case-insensitive)
     const cartaObj = cartas.find(c => c.name.toLowerCase() === carta.toLowerCase());
 
     if (!cartaObj) {
-      return res.status(404).json({ error: "Carta no encontrada", carta });
+      return res.status(404).json({ error: "Carta no encontrada en esta expansión", carta });
     }
 
     const blueprint_id = cartaObj.blueprint_id;
-    console.log("✅ Carta encontrada:", cartaObj.name, "(Blueprint ID:", blueprint_id, ")");
 
-    // 3. Buscar productos en el marketplace filtrando por CT0
+    // 4. Buscar productos del blueprint en el marketplace
     const marketUrl = `https://api.cardtrader.com/api/v2/marketplace/products?blueprint_id=${blueprint_id}`;
     const marketRes = await fetch(marketUrl, {
       headers: { Authorization: `Bearer ${CT_JWT}` }
@@ -60,16 +64,20 @@ app.get("/precioCT0", async (req, res) => {
     const marketData = await marketRes.json();
     const productos = Array.isArray(marketData) ? marketData : marketData.data;
 
+    // 5. Filtrar solo CardTrader Zero
     const ct0 = productos.filter(p => p.via_cardtrader_zero === true);
 
     if (ct0.length === 0) {
-      return res.json({ precio_minimo: null, mensaje: "No hay ofertas CT0 para esta carta." });
+      return res.json({
+        carta: cartaObj.name,
+        expansion: expansionObj.name,
+        precio_minimo_ct0: null,
+        mensaje: "No hay productos vía CardTrader Zero"
+      });
     }
 
     const precios = ct0.map(p => p.price);
     const precioMin = Math.min(...precios);
-
-    console.log("💰 Precio mínimo CT0:", precioMin);
 
     return res.json({
       carta: cartaObj.name,
