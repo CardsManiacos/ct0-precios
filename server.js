@@ -40,7 +40,7 @@ app.get("/precioCT0", async (req, res) => {
 
     console.log("✅ Expansión encontrada:", expansionObj.name, "ID:", expansionObj.id);
 
-    // Buscar cartas de la expansión
+        // Paso 2: Buscar cartas de la expansión (forma segura)
     const cartasRes = await fetch(`https://api.cardtrader.com/api/v2/expansions/${expansionObj.id}/cards`, {
       headers: {
         Authorization: `Bearer ${CT_JWT}`,
@@ -48,7 +48,34 @@ app.get("/precioCT0", async (req, res) => {
       }
     });
 
-    const cartasData = await cartasRes.json();
+    if (!cartasRes.ok) {
+      const text = await cartasRes.text();
+      return res.status(500).json({
+        error: "Respuesta inesperada al obtener cartas",
+        detalle: text.slice(0, 200)
+      });
+    }
+
+    const contentType = cartasRes.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await cartasRes.text();
+      return res.status(500).json({
+        error: "La respuesta no es JSON válida",
+        detalle: text.slice(0, 200)
+      });
+    }
+
+    let cartasData;
+    try {
+      cartasData = await cartasRes.json();
+    } catch (e) {
+      const text = await cartasRes.text();
+      return res.status(500).json({
+        error: "No se pudo parsear el JSON",
+        detalle: text.slice(0, 200)
+      });
+    }
+
     const cartas = Array.isArray(cartasData) ? cartasData : cartasData.data ?? [];
 
     const cartaEncontrada = cartas.find(c =>
@@ -65,12 +92,6 @@ app.get("/precioCT0", async (req, res) => {
       expansion_name: expansionObj.name,
       carta: cartaEncontrada
     });
-
-  } catch (error) {
-    console.error("🔥 Error interno:", error.message);
-    return res.status(500).json({ error: "Error interno del servidor", detalle: error.message });
-  }
-});
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor escuchando en el puerto ${PORT}`);
