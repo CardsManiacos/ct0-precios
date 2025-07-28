@@ -16,13 +16,31 @@ app.get("/precioCT0", async (req, res) => {
     return res.status(400).json({ error: "Faltan parámetros" });
   }
 
-  res.json({
-    precio: "en construcción",
-    carta,
-    expansion
-  });
-});
+  try {
+    // Paso 1: Obtener la lista de expansiones
+    const expansionRes = await fetch("https://api.cardtrader.com/api/v2/expansions", {
+      headers: {
+        Authorization: `Bearer ${CT_JWT}`
+      }
+    });
 
-app.listen(PORT, () => {
-  console.log(`Servidor escuchando en puerto ${PORT}`);
+    const data = await expansionRes.json();
+
+    // Paso 2: Buscar expansión por slug (nombre en minúscula y con guiones)
+    const expansionObj = data.find((e) => e.slug === expansion.toLowerCase());
+
+    if (!expansionObj) {
+      return res.status(404).json({ error: "Expansión no encontrada", expansion });
+    }
+
+    return res.json({
+      expansionSolicitada: expansion,
+      expansionEncontrada: expansionObj.name,
+      expansion_id: expansionObj.id
+    });
+
+  } catch (error) {
+    console.error("Error al buscar expansión:", error);
+    return res.status(500).json({ error: "Error interno del servidor" });
+  }
 });
