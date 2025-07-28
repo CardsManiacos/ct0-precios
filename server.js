@@ -22,13 +22,19 @@ app.get("/precioCT0", async (req, res) => {
     console.log("→ Carta:", carta);
     console.log("→ Código de expansión:", expansion);
 
-    // Obtener expansiones
+    // Obtener todas las expansiones
     const expansionRes = await fetch("https://api.cardtrader.com/api/v2/expansions", {
       headers: {
         Authorization: `Bearer ${CT_JWT}`,
         Accept: "application/json"
       }
     });
+
+    const contentTypeExp = expansionRes.headers.get("content-type");
+    if (!contentTypeExp || !contentTypeExp.includes("application/json")) {
+      const htmlError = await expansionRes.text();
+      return res.status(500).json({ error: "Respuesta inesperada en expansiones", detalle: htmlError.slice(0, 200) });
+    }
 
     const data = await expansionRes.json();
     const expansiones = Array.isArray(data) ? data : data.data;
@@ -40,7 +46,7 @@ app.get("/precioCT0", async (req, res) => {
 
     console.log("✅ Expansión encontrada:", expansionObj.name, "ID:", expansionObj.id);
 
-        // Paso 2: Buscar cartas de la expansión (forma segura)
+    // Obtener todas las cartas de la expansión
     const cartasRes = await fetch(`https://api.cardtrader.com/api/v2/expansions/${expansionObj.id}/cards`, {
       headers: {
         Authorization: `Bearer ${CT_JWT}`,
@@ -48,36 +54,21 @@ app.get("/precioCT0", async (req, res) => {
       }
     });
 
-    if (!cartasRes.ok) {
-      const text = await cartasRes.text();
-      return res.status(500).json({
-        error: "Respuesta inesperada al obtener cartas",
-        detalle: text.slice(0, 200)
-      });
-    }
-
-    const contentType = cartasRes.headers.get("content-type");
-    if (!contentType || !contentType.includes("application/json")) {
-      const text = await cartasRes.text();
-      return res.status(500).json({
-        error: "La respuesta no es JSON válida",
-        detalle: text.slice(0, 200)
-      });
+    const contentTypeCards = cartasRes.headers.get("content-type");
+    if (!cartasRes.ok || !contentTypeCards || !contentTypeCards.includes("application/json")) {
+      const htmlError = await cartasRes.text();
+      return res.status(500).json({ error: "Respuesta inesperada en cartas", detalle: htmlError.slice(0, 200) });
     }
 
     let cartasData;
     try {
       cartasData = await cartasRes.json();
     } catch (e) {
-      const text = await cartasRes.text();
-      return res.status(500).json({
-        error: "No se pudo parsear el JSON",
-        detalle: text.slice(0, 200)
-      });
+      const fallbackText = await cartasRes.text();
+      return res.status(500).json({ error: "No se pudo parsear el JSON de cartas", detalle: fallbackText.slice(0, 200) });
     }
 
     const cartas = Array.isArray(cartasData) ? cartasData : cartasData.data ?? [];
-
     const cartaEncontrada = cartas.find(c =>
       c.name?.toLowerCase() === carta.toLowerCase() ||
       c.local_name?.toLowerCase() === carta.toLowerCase()
@@ -93,6 +84,13 @@ app.get("/precioCT0", async (req, res) => {
       carta: cartaEncontrada
     });
 
+  } catch (error) {
+    console.error("🔥 Error interno:", error.message);
+    return res.status(500).json({ error: "Error interno del servidor", detalle: error.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Servidor escuchando en el puerto ${PORT}`);
 });
+
