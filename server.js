@@ -47,8 +47,8 @@ app.get("/precioCT0", async (req, res) => {
 
     console.log("✅ Expansión encontrada:", expansionObj.name, "ID:", expansionObj.id);
 
-    // Paso 2: Buscar la carta por nombre y expansión usando el endpoint correcto
-    const cartasRes = await fetch(`https://api.cardtrader.com/api/v2/cards/search?expansion_id=${expansionObj.id}&q=${encodeURIComponent(carta)}`, {
+    // Paso 2: Buscar la carta (endpoint corregido: sin /search)
+    const cartasRes = await fetch(`https://api.cardtrader.com/api/v2/cards?expansion_id=${expansionObj.id}&q=${encodeURIComponent(carta)}`, {
       headers: {
         Authorization: `Bearer ${CT_JWT}`,
         Accept: "application/json"
