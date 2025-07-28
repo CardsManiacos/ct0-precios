@@ -100,3 +100,4 @@ app.get("/precioCT0", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 Servidor escuchando en el puerto ${PORT}`);
 });
+
